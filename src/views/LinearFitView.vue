@@ -1,65 +1,109 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { linearFit } from '../core/chapter2'
 
-// 状态变量
-const dataPoints = ref<{ x: number; y: number }[]>([
-  { x: 0, y: 0.5 },
-  { x: 1, y: 1.0 },
-  { x: 2, y: 2.1 },
-  { x: 3, y: 2.9 },
-  { x: 4, y: 4.2 },
-])
-const fitResult = ref<{ a: number; b: number } | null>(null)
-const showPoints = ref(true)
+// 使用响应式状态对象
+const state = reactive({
+  dataPoints: [
+    { x: 1.0, y: 1.0 },
+    { x: 2.0, y: 2.0 },
+    { x: 3.0, y: 2.9 },
+    { x: 4.0, y: 4.0 },
+    { x: 5.0, y: 5.1 },
+    { x: 6.0, y: 5.9 },
+    { x: 7.0, y: 7.1 },
+    { x: 8.0, y: 8.0 },
+    { x: 9.0, y: 9.2 },
+    { x: 10.0, y: 10.1 },
+  ],
+  fitResult: null as { a: number; b: number } | null,
+  showPoints: true,
+  isCalculating: false,
+  editingPoint: { index: -1, x: 0, y: 0 }, // 用于编辑数据点
+})
 
 // 计算线性拟合的参数
 const calculateFit = () => {
-  if (dataPoints.value.length < 2) {
+  if (state.dataPoints.length < 2) {
     alert('至少需要两个数据点')
     return
   }
 
-  const xs = dataPoints.value.map((p) => p.x)
-  const ys = dataPoints.value.map((p) => p.y)
+  const xs = state.dataPoints.map((p) => p.x)
+  const ys = state.dataPoints.map((p) => p.y)
 
+  state.isCalculating = true
   try {
     const [a, b] = linearFit({ xs, ys })
-    fitResult.value = { a, b }
+    state.fitResult = { a, b }
   } catch (error) {
     console.error('拟合计算错误:', error)
     alert('拟合计算错误: ' + (error as Error).message)
+  } finally {
+    state.isCalculating = false
   }
 }
 
 // 添加新的数据点
 const addPoint = () => {
-  const lastPoint = dataPoints.value[dataPoints.value.length - 1]
+  // 智能添加点：如果有拟合结果，根据拟合结果预测新点的y值
+  const lastPoint = state.dataPoints[state.dataPoints.length - 1]
   const newX = lastPoint ? lastPoint.x + 1 : 0
-  dataPoints.value.push({ x: newX, y: 0 })
+  let newY = 0
+
+  if (state.fitResult) {
+    // 使用线性拟合模型预测新点的y值
+    const { a, b } = state.fitResult
+    newY = a + b * newX
+  } else if (state.dataPoints.length > 1) {
+    // 使用最后两点的斜率预测
+    const secondLast = state.dataPoints[state.dataPoints.length - 2]
+    const slope = (lastPoint.y - secondLast.y) / (lastPoint.x - secondLast.x)
+    newY = lastPoint.y + slope * (newX - lastPoint.x)
+  }
+
+  state.dataPoints.push({ x: newX, y: parseFloat(newY.toFixed(1)) })
 }
 
 // 删除数据点
 const removePoint = (index: number) => {
-  if (dataPoints.value.length > 2) {
-    dataPoints.value.splice(index, 1)
-    calculateFit()
+  if (state.dataPoints.length > 2) {
+    state.dataPoints.splice(index, 1)
   } else {
     alert('至少需要保留两个数据点')
   }
 }
 
-// 图表相关数据
-const chartWidth = 600
-const chartHeight = 400
-const padding = 40
+// 开始编辑数据点
+const startEdit = (index: number) => {
+  const point = state.dataPoints[index]
+  if (point) {
+    state.editingPoint = { index, x: point.x, y: point.y }
+  }
+}
+
+// 保存编辑的数据点
+const saveEdit = () => {
+  if (state.editingPoint.index >= 0) {
+    state.dataPoints[state.editingPoint.index] = {
+      x: state.editingPoint.x,
+      y: state.editingPoint.y,
+    }
+    state.editingPoint.index = -1 // 重置编辑状态
+  }
+}
+
+// 取消编辑
+const cancelEdit = () => {
+  state.editingPoint.index = -1
+}
 
 // 计算图表数据的范围
 const dataRange = computed(() => {
-  if (dataPoints.value.length === 0) return { minX: 0, maxX: 1, minY: 0, maxY: 1 }
+  if (state.dataPoints.length === 0) return { minX: 0, maxX: 1, minY: 0, maxY: 1 }
 
-  const xs = dataPoints.value.map((p) => p.x)
-  const ys = dataPoints.value.map((p) => p.y)
+  const xs = state.dataPoints.map((p) => p.x)
+  const ys = state.dataPoints.map((p) => p.y)
 
   let minX = Math.min(...xs)
   let maxX = Math.max(...xs)
@@ -67,8 +111,8 @@ const dataRange = computed(() => {
   let maxY = Math.max(...ys)
 
   // 如果有拟合结果，考虑拟合曲线的极值
-  if (fitResult.value) {
-    const { a, b } = fitResult.value
+  if (state.fitResult) {
+    const { a, b } = state.fitResult
     const fitMinY = a + b * minX
     const fitMaxY = a + b * maxX
 
@@ -88,52 +132,28 @@ const dataRange = computed(() => {
   }
 })
 
-// 坐标转换函数
-const scaleX = (x: number) => {
-  const { minX, maxX } = dataRange.value
-  return padding + ((x - minX) / (maxX - minX)) * (chartWidth - 2 * padding)
-}
-
-const scaleY = (y: number) => {
-  const { minY, maxY } = dataRange.value
-  return chartHeight - padding - ((y - minY) / (maxY - minY)) * (chartHeight - 2 * padding)
-}
-
-// 生成拟合直线的路径
-const fitLinePath = computed(() => {
-  if (!fitResult.value) return ''
-
-  const { a, b } = fitResult.value
-  const { minX, maxX } = dataRange.value
-
-  const y1 = a + b * minX
-  const y2 = a + b * maxX
-
-  return `M ${scaleX(minX)} ${scaleY(y1)} L ${scaleX(maxX)} ${scaleY(y2)}`
-})
-
 // 计算均方误差
 const meanSquaredError = computed(() => {
-  if (!fitResult.value) return 0
+  if (!state.fitResult) return 0
 
-  const { a, b } = fitResult.value
+  const { a, b } = state.fitResult
   let sum = 0
 
-  for (const point of dataPoints.value) {
+  for (const point of state.dataPoints) {
     const predicted = a + b * point.x
     const error = predicted - point.y
     sum += error * error
   }
 
-  return sum / dataPoints.value.length
+  return sum / state.dataPoints.length
 })
 
 // 计算相关系数 R
 const correlationCoefficient = computed(() => {
-  if (dataPoints.value.length < 2) return 0
+  if (state.dataPoints.length < 2) return 0
 
-  const xs = dataPoints.value.map((p) => p.x)
-  const ys = dataPoints.value.map((p) => p.y)
+  const xs = state.dataPoints.map((p) => p.x)
+  const ys = state.dataPoints.map((p) => p.y)
 
   const n = xs.length
   const sumX = xs.reduce((sum, v) => sum + v, 0)
@@ -148,18 +168,136 @@ const correlationCoefficient = computed(() => {
   return denominator ? numerator / denominator : 0
 })
 
-// 生成坐标轴
-const xAxis = computed(() => {
-  const { minX, maxX } = dataRange.value
-  const y = scaleY(0)
-  return `M ${scaleX(minX)} ${y} L ${scaleX(maxX)} ${y}`
+// 确定相关性强度描述
+const correlationStrength = computed(() => {
+  const absR = Math.abs(correlationCoefficient.value)
+  if (absR > 0.8) return '强相关'
+  if (absR > 0.5) return '中等相关'
+  if (absR > 0.3) return '弱相关'
+  return '几乎无相关'
 })
 
-const yAxis = computed(() => {
-  const { minY, maxY } = dataRange.value
-  const x = scaleX(0)
-  return `M ${x} ${scaleY(minY)} L ${x} ${scaleY(maxY)}`
+// ECharts 配置选项
+const chartOption = computed(() => {
+  const { minX, maxX, minY, maxY } = dataRange.value
+
+  // 散点数据
+  const scatterData = state.dataPoints.map((point) => [point.x, point.y])
+
+  // 拟合直线数据
+  const lineData: [number, number][] = []
+  if (state.fitResult) {
+    const { a, b } = state.fitResult
+    lineData.push([minX, a + b * minX])
+    lineData.push([maxX, a + b * maxX])
+  }
+
+  return {
+    animation: true,
+    grid: {
+      left: '10%',
+      right: '5%',
+      top: '10%',
+      bottom: '10%',
+      containLabel: true,
+    },
+    legend: {
+      data: ['数据点', '拟合直线'],
+      bottom: 5,
+    },
+    tooltip: {
+      trigger: 'item',
+      formatter: function (params: any) {
+        return `(${params.data[0].toFixed(2)}, ${params.data[1].toFixed(2)})`
+      },
+    },
+    xAxis: {
+      type: 'value',
+      name: 'x',
+      nameLocation: 'middle',
+      nameGap: 25,
+      min: minX,
+      max: maxX,
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: 'dashed',
+        },
+      },
+      axisLabel: {
+        formatter: (value: number) => value.toFixed(1),
+      },
+    },
+    yAxis: {
+      type: 'value',
+      name: 'y',
+      nameLocation: 'middle',
+      nameGap: 35,
+      min: minY,
+      max: maxY,
+      splitLine: {
+        show: true,
+        lineStyle: {
+          type: 'dashed',
+        },
+      },
+      axisLabel: {
+        formatter: (value: number) => value.toFixed(1),
+      },
+    },
+    dataZoom: [
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+        start: 0,
+        end: 100,
+      },
+      {
+        type: 'inside',
+        yAxisIndex: 0,
+        start: 0,
+        end: 100,
+      },
+    ],
+    series: [
+      {
+        name: '数据点',
+        type: 'scatter',
+        data: scatterData,
+        symbolSize: 8,
+        itemStyle: {
+          color: 'blue',
+        },
+        label: {
+          show: state.showPoints,
+          position: 'top',
+          formatter: function (params: any) {
+            return `(${params.data[0]}, ${params.data[1]})`
+          },
+        },
+        zlevel: 10, // 提高散点的层级，避免被曲线覆盖
+      },
+      {
+        name: '拟合直线',
+        type: 'line',
+        data: lineData,
+        showSymbol: false,
+        lineStyle: {
+          color: 'red',
+          width: 2,
+        },
+        zlevel: 5, // 确保曲线在散点下方
+      },
+    ],
+  }
 })
+
+// 监听数据点的变化，自动重新计算拟合参数
+watch(
+  () => state.dataPoints,
+  () => calculateFit(),
+  { deep: true },
+)
 
 // 初始化
 onMounted(() => {
@@ -171,163 +309,318 @@ onMounted(() => {
   <div class="linear-fit-container">
     <h1>线性最小二乘拟合</h1>
 
-    <div class="form-section">
-      <h2>数据点</h2>
-      <div class="points-container">
-        <div v-for="(point, index) in dataPoints" :key="index" class="point-row">
-          <div class="point-inputs">
-            <label>x{{ index }}: </label>
-            <input type="number" v-model.number="point.x" step="0.1" @change="calculateFit" />
-            <label>y{{ index }}: </label>
-            <input type="number" v-model.number="point.y" step="0.1" @change="calculateFit" />
+    <div class="main-content">
+      <div class="left-panel">
+        <div class="data-section">
+          <div class="section-header">
+            <h2>数据点管理</h2>
+            <div class="controls">
+              <button @click="addPoint" class="add-btn">添加点</button>
+              <button @click="calculateFit" class="calc-btn" :disabled="state.isCalculating">
+                {{ state.isCalculating ? '计算中...' : '重新计算' }}
+              </button>
+            </div>
           </div>
-          <button @click="removePoint(index)" class="remove-btn">删除</button>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>序号</th>
+                  <th>x</th>
+                  <th>y</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(point, index) in state.dataPoints"
+                  :key="index"
+                  :class="{ editing: state.editingPoint.index === index }"
+                >
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <input
+                      v-if="state.editingPoint.index === index"
+                      v-model.number="state.editingPoint.x"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span v-else>{{ point.x }}</span>
+                  </td>
+                  <td>
+                    <input
+                      v-if="state.editingPoint.index === index"
+                      v-model.number="state.editingPoint.y"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span v-else>{{ point.y }}</span>
+                  </td>
+                  <td class="actions">
+                    <template v-if="state.editingPoint.index === index">
+                      <button @click="saveEdit" class="small-btn save-btn">保存</button>
+                      <button @click="cancelEdit" class="small-btn cancel-btn">取消</button>
+                    </template>
+                    <template v-else>
+                      <button @click="startEdit(index)" class="small-btn edit-btn">编辑</button>
+                      <button @click="removePoint(index)" class="small-btn remove-btn">删除</button>
+                    </template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="results-section" v-if="state.fitResult">
+          <h2>拟合结果</h2>
+          <p class="equation">
+            拟合方程: y = {{ state.fitResult.a.toFixed(4) }} + {{ state.fitResult.b.toFixed(4) }}x
+          </p>
+          <div class="stats">
+            <div class="stat-item">
+              <p class="stat-label">均方误差:</p>
+              <p class="stat-value">{{ meanSquaredError.toFixed(6) }}</p>
+            </div>
+            <div class="stat-item">
+              <p class="stat-label">相关系数 R:</p>
+              <p class="stat-value">
+                {{ correlationCoefficient.toFixed(6) }}
+                <span class="correlation-strength">({{ correlationStrength }})</span>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-      <button @click="addPoint" class="add-btn">添加数据点</button>
-    </div>
 
-    <div class="form-section">
-      <h2>拟合结果</h2>
-      <div class="result" v-if="fitResult">
-        <p>拟合方程: y = {{ fitResult.a.toFixed(6) }} + {{ fitResult.b.toFixed(6) }}x</p>
-        <p>均方误差: {{ meanSquaredError.toFixed(6) }}</p>
-        <p>相关系数 R: {{ correlationCoefficient.toFixed(6) }}</p>
+      <div class="chart-section">
+        <v-chart class="chart" :option="chartOption" autoresize />
       </div>
-
-      <button @click="calculateFit" class="calc-btn">重新计算</button>
-    </div>
-
-    <div class="chart-container">
-      <h2>可视化</h2>
-      <label>
-        <input type="checkbox" v-model="showPoints" />
-        显示数据点
-      </label>
-
-      <svg :width="chartWidth" :height="chartHeight" class="chart">
-        <!-- 坐标轴 -->
-        <path :d="xAxis" stroke="#666" stroke-width="1" />
-        <path :d="yAxis" stroke="#666" stroke-width="1" />
-
-        <!-- 拟合直线 -->
-        <path v-if="fitResult" :d="fitLinePath" fill="none" stroke="red" stroke-width="2" />
-
-        <!-- 数据点 -->
-        <g v-if="showPoints">
-          <circle
-            v-for="(point, index) in dataPoints"
-            :key="index"
-            :cx="scaleX(point.x)"
-            :cy="scaleY(point.y)"
-            r="4"
-            fill="blue"
-          />
-          <text
-            v-for="(point, index) in dataPoints"
-            :key="'label-' + index"
-            :x="scaleX(point.x) + 5"
-            :y="scaleY(point.y) - 5"
-            font-size="12"
-            fill="#333"
-          >
-            ({{ point.x }}, {{ point.y }})
-          </text>
-        </g>
-      </svg>
     </div>
   </div>
 </template>
 
 <style scoped>
 .linear-fit-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 h1 {
   color: #2c3e50;
-  font-size: 1.8em;
-  margin-bottom: 20px;
+  font-size: 1.6em;
+  margin: 10px 0;
+  text-align: center;
 }
 
 h2 {
   color: #2c3e50;
-  font-size: 1.3em;
-  margin: 15px 0;
+  font-size: 1.2em;
+  margin: 5px 0;
 }
 
-.form-section {
-  margin-bottom: 30px;
-  padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-}
-
-.points-container {
-  margin-bottom: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.point-row {
+.main-content {
   display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.point-inputs {
-  display: flex;
-  align-items: center;
   flex: 1;
+  gap: 15px;
+  height: calc(100vh - 70px);
+  overflow: hidden;
 }
 
-input {
-  width: 80px;
-  padding: 5px;
-  margin: 0 10px 0 5px;
-  border: 1px solid #ccc;
+.left-panel {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+}
+
+.data-section {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  height: 60%;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.controls {
+  display: flex;
+  gap: 5px;
+}
+
+.results-section {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px;
+  flex-grow: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chart-section {
+  width: 60%;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-container {
+  overflow-y: auto;
+  flex-grow: 1;
+  border: 1px solid #e1e1e1;
   border-radius: 4px;
+  background: white;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table th {
+  background-color: #f1f1f1;
+  padding: 8px 5px;
+  text-align: center;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+table td {
+  padding: 6px 5px;
+  text-align: center;
+  border-top: 1px solid #e1e1e1;
+}
+
+tr.editing {
+  background-color: #e6f7ff;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
 }
 
 button {
-  padding: 5px 10px;
+  cursor: pointer;
+  background-color: #4caf50;
+  color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
-  margin-left: 5px;
+  padding: 5px 10px;
+  transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(90%);
+}
+
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.small-btn {
+  padding: 2px 5px;
+  font-size: 0.8em;
 }
 
 .add-btn {
   background-color: #4caf50;
-  color: white;
 }
 
 .calc-btn {
   background-color: #2196f3;
-  color: white;
+}
+
+.edit-btn {
+  background-color: #ff9800;
+}
+
+.save-btn {
+  background-color: #4caf50;
+}
+
+.cancel-btn {
+  background-color: #9e9e9e;
 }
 
 .remove-btn {
   background-color: #f44336;
-  color: white;
 }
 
-.result {
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
+.equation {
+  font-size: 1.1em;
+  color: #333;
+  font-weight: bold;
+  margin: 10px 0;
 }
 
-.chart-container {
-  margin-top: 30px;
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 180px;
+}
+
+.stat-label {
+  font-weight: bold;
+  margin-bottom: 3px;
+  color: #666;
+}
+
+.stat-value {
+  font-size: 1em;
+}
+
+.correlation-strength {
+  font-style: italic;
+  color: #666;
+  margin-left: 5px;
 }
 
 .chart {
-  margin-top: 10px;
-  border: 1px solid #ddd;
-  background-color: #f9f9f9;
+  width: 100%;
+  height: 100%;
+}
+
+input {
+  width: 60px;
+  padding: 3px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  text-align: center;
+}
+
+@media (max-width: 1200px) {
+  .main-content {
+    flex-direction: column;
+  }
+  .left-panel,
+  .chart-section {
+    width: 100%;
+  }
+  .data-section {
+    height: auto;
+  }
 }
 </style>
