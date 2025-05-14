@@ -1,5 +1,5 @@
 /*
- 第二章 插值方法 TypeScript 实现
+ 第二章 插值方法
  实现内容：
  1. 拉格朗日插值（Lagrange interpolation）
  2. 牛顿插值（Newton interpolation）

@@ -9,6 +9,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <RouterLink to="/lagrange">拉格朗日插值</RouterLink>
         <RouterLink to="/newton">牛顿插值</RouterLink>
         <RouterLink to="/linear-fit">线性拟合</RouterLink>
+        <RouterLink to="/trapezoid">数值积分</RouterLink>
       </nav>
     </header>
 

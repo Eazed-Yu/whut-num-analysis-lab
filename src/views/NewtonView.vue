@@ -384,7 +384,7 @@ onMounted(() => {
 
 <style scoped>
 .newton-container {
-  height: 100vh;
+  height: 85vh;
   display: flex;
   flex-direction: column;
   padding: 10px 20px;

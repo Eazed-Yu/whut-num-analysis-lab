@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'linearFit',
       component: () => import('../views/LinearFitView.vue'),
     },
+    {
+      path: '/trapezoid',
+      name: 'trapezoid',
+      component: () => import('../views/TrapezoidView.vue'),
+    },
   ],
 })
 
