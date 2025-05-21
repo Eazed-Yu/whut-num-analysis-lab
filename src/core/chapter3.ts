@@ -278,8 +278,6 @@ export function adaptiveCompositeTrapezoid({
     // 步数翻倍
     n *= 2
     h = (b - a) / n
-
-    // 先将上一轮结果折半
     let sumOdd = 0
     // 新增奇数节点 i=1,3,5,...,n-1
     for (let i = 1; i < n; i += 2) {
@@ -352,16 +350,14 @@ export function rombergIntegration({
     new Array<number>(Nmax + 1).fill(0)
   );
 
-  // 第 0 层第 0 列：复化梯形法
   const h0 = b - a;
   R[0][0] = (h0 / 2) * (f(a) + f(b));
 
   // 逐层计算
   for (let i = 1; i <= Nmax; i++) {
-    // 细分步长
+
     const h = (b - a) / Math.pow(2, i);
 
-    // 复化梯形法新节点累加
     let sum = 0;
     const points = Math.pow(2, i - 1);
     for (let k = 1; k <= points; k++) {
@@ -369,7 +365,7 @@ export function rombergIntegration({
     }
     R[i][0] = 0.5 * R[i - 1][0] + h * sum;
 
-    // Richardson 外推
+    // 外推
     for (let j = 1; j <= i; j++) {
       const factor = Math.pow(4, j) - 1;
       R[i][j] =
@@ -383,6 +379,6 @@ export function rombergIntegration({
     }
   }
 
-  // 若未收敛，返回最后一个对角元素
+
   return R[Nmax][Nmax];
 }

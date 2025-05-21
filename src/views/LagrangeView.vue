@@ -132,7 +132,7 @@ const chartOption = computed(() => {
   // 生成曲线数据点
   const curveData: [number, number][] = []
   if (xs.length >= 2) {
-    const steps = 500 // 增加点的密度，使曲线更平滑
+    const steps = 500
     const range = maxX - minX
 
     for (let i = 0; i <= steps; i++) {
@@ -141,7 +141,6 @@ const chartOption = computed(() => {
         const y = lagrangeInterpolation({ xs, ys, x })
         curveData.push([x, y])
       } catch (e) {
-        // 跳过可能产生错误的点
         continue
       }
     }
@@ -226,7 +225,6 @@ const chartOption = computed(() => {
         name: '拉格朗日插值曲线',
         data: curveData,
         showSymbol: false,
-        smooth: false, // 拉格朗日插值曲线已经计算好了，不需要额外的平滑
         lineStyle: {
           width: 2,
           color: 'blue',

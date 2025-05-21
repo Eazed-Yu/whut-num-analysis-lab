@@ -1,18 +1,6 @@
-<!-- 
-  TrapezoidView.vue
-  数值积分计算器组件
-  
-  功能：
-  1. 支持变步长复化梯形法和Romberg积分法两种数值积分方法
-  2. 提供多个预设积分函数供选择
-  3. 可视化显示积分区域和函数曲线
-  4. 实时显示计算结果和误差分析
-  5. 支持参数动态调整和结果即时更新
--->
-
 <script setup lang="ts">
 import { computed, onMounted, watch, reactive } from 'vue'
-// 导入数值积分算法和可视化辅助函数
+
 import { 
   adaptiveCompositeTrapezoid, 
   rombergIntegrationWithTable,
@@ -20,7 +8,7 @@ import {
   generateFunctionCurveData,
   generateIntegralAreaData
 } from '../core/chapter3'
-// 导入ECharts相关组件
+
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, ScatterChart } from 'echarts/charts'
@@ -91,8 +79,8 @@ const state = reactive({
   maxIterations: 20, // 最大迭代次数
   rombergMaxLevel: 10, // Romberg方法最大层数
   result: null as number | null, // 计算结果
-  analyticalResult: null as number | null, // 解析解结果
-  error: null as string | null, // 错误信息
+  analyticalResult: null as number | null, 
+  error: null as string | null, 
   iterations: [] as { // 迭代过程记录
     n: number             // 子区间数
     value: number         // 当前迭代结果
@@ -120,10 +108,8 @@ const calculateIntegral = () => {
   state.iterations = []
   state.rombergTable = []
 
-  // 计算实际误差容限
   const tolerance = Math.pow(10, -state.toleranceExponent)
 
-  // 计算解析解（这个会在迭代结束后使用）
   const exactResult = currentFunction.value.analyticalResult(state.lowerBound, state.upperBound)
 
   try {
@@ -167,12 +153,10 @@ const calculateIntegral = () => {
         state.result = result
         state.analyticalResult = exactResult
 
-        // 使用真实的迭代过程数据
         state.iterations = iterData
       } catch (error) {
         state.error = (error as Error).message
 
-        // 即使有错误也展示已收集的迭代数据
         if (iterData.length > 0) {
           state.iterations = iterData
         }
@@ -375,12 +359,10 @@ const chartOption = computed(() => {
   }
 })
 
-// 计算当前误差容限的具体值
 const currentTolerance = computed(() => {
   return Math.pow(10, -state.toleranceExponent)
 })
 
-// 监听参数变化，自动重新计算积分
 watch(
   () => [
     state.selectedFunctionIndex,
@@ -397,7 +379,7 @@ watch(
   { deep: true },
 )
 
-// 格式化误差容限显示
+
 const formattedTolerance = computed(() => {
   return `1e-${state.toleranceExponent}`
 })
