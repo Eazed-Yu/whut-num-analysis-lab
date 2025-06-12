@@ -29,6 +29,21 @@ const router = createRouter({
       name: 'trapezoid',
       component: () => import('../views/TrapezoidView.vue'),
     },
+    {
+      path: '/differential-equation',
+      name: 'differentialEquation',
+      component: () => import('../views/DifferentialEquationView.vue'),
+    },
+    {
+      path: '/equation-root',
+      name: 'equationRoot',
+      component: () => import('../views/EquationRootView.vue'),
+    },
+    {
+      path: '/linear-system',
+      name: 'linearSystem',
+      component: () => import('../views/LinearSystemView.vue'),
+    },
   ],
 })
 

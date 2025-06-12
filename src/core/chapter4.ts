@@ -26,17 +26,14 @@ function improvedEuler(
     const points = [{ x, y }];
 
     while (x < xn) {
-        // 预测值
         const y_predictor = y + h * f(x, y);
-        // 校正值
+
         const y_corrector = y + h * f(x + h, y_predictor);
         
-        // 更新 y
         y = (y_predictor + y_corrector) / 2;
-        // 更新 x
+
         x += h;
-        
-        // 确保 x 不会因浮点数精度问题超过 xn
+
         if (x > xn) x = xn;
         
         points.push({ x, y });
@@ -81,3 +78,5 @@ function rungeKutta4(
 
     return points;
 }
+
+export { improvedEuler, rungeKutta4 };

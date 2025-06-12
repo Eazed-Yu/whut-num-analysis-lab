@@ -35,19 +35,18 @@ function jacobi(
                 }
             }
             if (Math.abs(A[i][i]) < 1e-12) {
-                console.error("Jacobi 法失败：对角线元素为零。");
+                console.error("对角线元素为零。");
                 return null;
             }
             x[i] = (b[i] - sigma) / A[i][i];
         }
 
-        // 计算无穷范数 ||x - x_old||_infinity
-        let norm = 0;
+        let error = 0;
         for (let i = 0; i < n; i++) {
-            norm = Math.max(norm, Math.abs(x[i] - x_old[i]));
+            error = Math.max(error, Math.abs(x[i] - x_old[i]));
         }
 
-        if (norm < tol) {
+        if (error < tol) {
             return x;
         }
     }
@@ -91,18 +90,18 @@ function gaussSeidel(
             }
             
             if (Math.abs(A[i][i]) < 1e-12) {
-                console.error("Gauss-Seidel 法失败：对角线元素为零。");
+                console.error("对角线元素为零。");
                 return null;
             }
             x[i] = (b[i] - sigma) / A[i][i];
         }
 
-        let norm = 0;
+        let error = 0;
         for (let i = 0; i < n; i++) {
-            norm = Math.max(norm, Math.abs(x[i] - x_old[i]));
+            error = Math.max(error, Math.abs(x[i] - x_old[i]));
         }
 
-        if (norm < tol) {
+        if (error < tol) {
             return x;
         }
     }
@@ -110,4 +109,6 @@ function gaussSeidel(
     console.warn(`达到最大迭代次数 ${maxIter}，返回当前结果。`);
     return x;
 }
+
+export { jacobi, gaussSeidel };
 

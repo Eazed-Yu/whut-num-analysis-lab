@@ -84,3 +84,5 @@ function newtonMethod(
     return x;
 }
 
+export { bisection, newtonMethod };
+

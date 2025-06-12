@@ -10,6 +10,9 @@ import { RouterLink, RouterView } from 'vue-router'
         <RouterLink to="/newton">牛顿插值</RouterLink>
         <RouterLink to="/linear-fit">线性拟合</RouterLink>
         <RouterLink to="/trapezoid">数值积分</RouterLink>
+        <RouterLink to="/differential-equation">常微分方程</RouterLink>
+        <RouterLink to="/equation-root">方程求根</RouterLink>
+        <RouterLink to="/linear-system">线性方程组</RouterLink>
       </nav>
     </header>
 
