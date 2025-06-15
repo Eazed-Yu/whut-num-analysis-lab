@@ -33,138 +33,241 @@ const state = reactive({
   // 控制状态
   isCalculating: false,
   activeMethod: 'jacobi' as 'jacobi' | 'gauss-seidel',
+  currentPresetName: '对角占优矩阵 (3×3)',
   
-  // 按维度分组的预设矩阵
-  presetMatrices: {
-    2: [
-      {
-        name: '对角占优矩阵',
-        A: [[4, 1], [1, 4]],
-        b: [5, 5],
-        x0: [0, 0]
-      },
-      {
-        name: '一般矩阵',
-        A: [[3, 2], [1, 4]],
-        b: [7, 6],
-        x0: [0, 0]
-      },
-      {
-        name: '对称矩阵',
-        A: [[5, 2], [2, 3]],
-        b: [8, 7],
-        x0: [0, 0]
-      }
-    ],
-    3: [
-      {
-        name: '对角占优矩阵',
-        A: [[8, -1, 2], [-1, 7, -2], [2, -2, 9]],
-        b: [9, 4, 9],
-        x0: [0, 0, 0]
-      },
-      {
-        name: '一般矩阵',
-        A: [[10, -1, 2], [-1, 11, -1], [2, -1, 10]],
-        b: [6, 25, -11],
-        x0: [0, 0, 0]
-      },
-      {
-        name: '对称矩阵',
-        A: [[6, 2, 1], [2, 5, 1], [1, 1, 4]],
-        b: [9, 8, 6],
-        x0: [0, 0, 0]
-      }
-    ],
-    4: [
-      {
-        name: '对角占优矩阵',
-        A: [[10, -1, 2, 0], [-1, 11, -1, 3], [2, -1, 10, -1], [0, 3, -1, 8]],
-        b: [6, 25, -11, 15],
-        x0: [0, 0, 0, 0]
-      },
-      {
-        name: '一般矩阵',
-        A: [[5, -2, 3, 0], [-3, 9, 1, -2], [2, -1, 7, 2], [1, 0, -3, 6]],
-        b: [1, 2, 3, 4],
-        x0: [0, 0, 0, 0]
-      },
-      {
-        name: '三对角矩阵',
-        A: [[4, 1, 0, 0], [1, 4, 1, 0], [0, 1, 4, 1], [0, 0, 1, 4]],
-        b: [5, 6, 6, 5],
-        x0: [0, 0, 0, 0]
-      }
-    ],
-    5: [
-      {
-        name: '对角占优矩阵',
-        A: [[15, -1, 2, 0, 1], [-1, 12, -1, 3, 0], [2, -1, 14, -1, 2], [0, 3, -1, 13, -2], [1, 0, 2, -2, 11]],
-        b: [17, 13, 16, 13, 12],
-        x0: [0, 0, 0, 0, 0]
-      },
-      {
-        name: '一般矩阵',
-        A: [[6, -2, 1, 0, 1], [-1, 8, 1, -2, 0], [1, -1, 7, 1, -1], [0, -2, 1, 9, 2], [1, 0, -1, 2, 5]],
-        b: [6, 6, 7, 10, 7],
-        x0: [0, 0, 0, 0, 0]
-      },
-      {
-        name: '五对角矩阵',
-        A: [[5, 1, 0, 0, 0], [1, 5, 1, 0, 0], [0, 1, 5, 1, 0], [0, 0, 1, 5, 1], [0, 0, 0, 1, 5]],
-        b: [6, 7, 7, 7, 6],
-        x0: [0, 0, 0, 0, 0]
-      }
-    ]
-  } as Record<number, Array<{name: string, A: number[][], b: number[], x0: number[]}>>
+  // 预设矩阵列表
+  presetMatrices: [
+    // 2×2 矩阵
+    {
+      name: '对角占优矩阵 (2×2)',
+      category: '对角占优',
+      dimension: 2,
+      A: [[4, 1], [1, 4]],
+      b: [5, 5],
+      x0: [0, 0],
+      description: '严格对角占优，保证收敛'
+    },
+    {
+      name: '对称正定矩阵 (2×2)',
+      category: '对称矩阵',
+      dimension: 2,
+      A: [[5, 2], [2, 3]],
+      b: [8, 7],
+      x0: [0, 0],
+      description: '对称正定矩阵，收敛性好'
+    },
+    {
+      name: '一般矩阵 (2×2)',
+      category: '一般矩阵',
+      dimension: 2,
+      A: [[3, 2], [1, 4]],
+      b: [7, 6],
+      x0: [0, 0],
+      description: '一般线性方程组'
+    },
+    {
+      name: '病态矩阵 (2×2)',
+      category: '特殊矩阵',
+      dimension: 2,
+      A: [[1, 0.99], [0.99, 0.98]],
+      b: [1.99, 1.97],
+      x0: [0, 0],
+      description: '条件数较大，数值不稳定'
+    },
+    
+    // 3×3 矩阵
+    {
+      name: '对角占优矩阵 (3×3)',
+      category: '对角占优',
+      dimension: 3,
+      A: [[8, -1, 2], [-1, 7, -2], [2, -2, 9]],
+      b: [9, 4, 9],
+      x0: [0, 0, 0],
+      description: '严格对角占优，快速收敛'
+    },
+    {
+      name: '对称正定矩阵 (3×3)',
+      category: '对称矩阵',
+      dimension: 3,
+      A: [[6, 2, 1], [2, 5, 1], [1, 1, 4]],
+      b: [9, 8, 6],
+      x0: [0, 0, 0],
+      description: '对称正定，收敛稳定'
+    },
+    {
+      name: '三对角矩阵 (3×3)',
+      category: '带状矩阵',
+      dimension: 3,
+      A: [[4, 1, 0], [1, 4, 1], [0, 1, 4]],
+      b: [5, 6, 5],
+      x0: [0, 0, 0],
+      description: '三对角结构，常见于差分方程'
+    },
+    {
+      name: '一般矩阵 (3×3)',
+      category: '一般矩阵',
+      dimension: 3,
+      A: [[10, -1, 2], [-1, 11, -1], [2, -1, 10]],
+      b: [6, 25, -11],
+      x0: [0, 0, 0],
+      description: '一般线性方程组'
+    },
+    {
+      name: '弱对角占优矩阵 (3×3)',
+      category: '特殊矩阵',
+      dimension: 3,
+      A: [[3, 1, 1], [1, 3, 1], [1, 1, 3]],
+      b: [5, 5, 5],
+      x0: [0, 0, 0],
+      description: '弱对角占优，收敛较慢'
+    },
+    
+    // 4×4 矩阵
+    {
+      name: '对角占优矩阵 (4×4)',
+      category: '对角占优',
+      dimension: 4,
+      A: [[10, -1, 2, 0], [-1, 11, -1, 3], [2, -1, 10, -1], [0, 3, -1, 8]],
+      b: [6, 25, -11, 15],
+      x0: [0, 0, 0, 0],
+      description: '4阶对角占优矩阵'
+    },
+    {
+      name: '四对角矩阵 (4×4)',
+      category: '带状矩阵',
+      dimension: 4,
+      A: [[4, 1, 0, 0], [1, 4, 1, 0], [0, 1, 4, 1], [0, 0, 1, 4]],
+      b: [5, 6, 6, 5],
+      x0: [0, 0, 0, 0],
+      description: '四对角带状矩阵'
+    },
+    {
+      name: '对称矩阵 (4×4)',
+      category: '对称矩阵',
+      dimension: 4,
+      A: [[5, 1, 2, 1], [1, 6, 1, 2], [2, 1, 7, 1], [1, 2, 1, 8]],
+      b: [9, 10, 11, 12],
+      x0: [0, 0, 0, 0],
+      description: '4阶对称正定矩阵'
+    },
+    {
+      name: '一般矩阵 (4×4)',
+      category: '一般矩阵',
+      dimension: 4,
+      A: [[5, -2, 3, 0], [-3, 9, 1, -2], [2, -1, 7, 2], [1, 0, -3, 6]],
+      b: [1, 2, 3, 4],
+      x0: [0, 0, 0, 0],
+      description: '4阶一般线性方程组'
+    },
+    
+    // 5×5 矩阵
+    {
+      name: '对角占优矩阵 (5×5)',
+      category: '对角占优',
+      dimension: 5,
+      A: [[15, -1, 2, 0, 1], [-1, 12, -1, 3, 0], [2, -1, 14, -1, 2], [0, 3, -1, 13, -2], [1, 0, 2, -2, 11]],
+      b: [17, 13, 16, 13, 12],
+      x0: [0, 0, 0, 0, 0],
+      description: '5阶强对角占优矩阵'
+    },
+    {
+      name: '五对角矩阵 (5×5)',
+      category: '带状矩阵',
+      dimension: 5,
+      A: [[5, 1, 0, 0, 0], [1, 5, 1, 0, 0], [0, 1, 5, 1, 0], [0, 0, 1, 5, 1], [0, 0, 0, 1, 5]],
+      b: [6, 7, 7, 7, 6],
+      x0: [0, 0, 0, 0, 0],
+      description: '五对角带状矩阵'
+    },
+    {
+      name: '对称矩阵 (5×5)',
+      category: '对称矩阵',
+      dimension: 5,
+      A: [[6, 1, 2, 0, 1], [1, 7, 1, 2, 0], [2, 1, 8, 1, 2], [0, 2, 1, 9, 1], [1, 0, 2, 1, 10]],
+      b: [10, 11, 14, 13, 14],
+      x0: [0, 0, 0, 0, 0],
+      description: '5阶对称正定矩阵'
+    },
+    {
+      name: '一般矩阵 (5×5)',
+      category: '一般矩阵',
+      dimension: 5,
+      A: [[6, -2, 1, 0, 1], [-1, 8, 1, -2, 0], [1, -1, 7, 1, -1], [0, -2, 1, 9, 2], [1, 0, -1, 2, 5]],
+      b: [6, 6, 7, 10, 7],
+      x0: [0, 0, 0, 0, 0],
+      description: '5阶一般线性方程组'
+    },
+    
+    // 6×6 矩阵
+    {
+      name: '对角占优矩阵 (6×6)',
+      category: '对角占优',
+      dimension: 6,
+      A: [
+        [20, -1, 2, 0, 1, 0],
+        [-1, 18, -1, 3, 0, 1],
+        [2, -1, 19, -1, 2, 0],
+        [0, 3, -1, 17, -2, 1],
+        [1, 0, 2, -2, 16, -1],
+        [0, 1, 0, 1, -1, 15]
+      ],
+      b: [22, 20, 22, 19, 16, 16],
+      x0: [0, 0, 0, 0, 0, 0],
+      description: '6阶强对角占优矩阵'
+    },
+    {
+      name: '六对角矩阵 (6×6)',
+      category: '带状矩阵',
+      dimension: 6,
+      A: [
+        [6, 1, 0, 0, 0, 0],
+        [1, 6, 1, 0, 0, 0],
+        [0, 1, 6, 1, 0, 0],
+        [0, 0, 1, 6, 1, 0],
+        [0, 0, 0, 1, 6, 1],
+        [0, 0, 0, 0, 1, 6]
+      ],
+      b: [7, 8, 8, 8, 8, 7],
+      x0: [0, 0, 0, 0, 0, 0],
+      description: '六对角带状矩阵'
+    }
+  ] as Array<{name: string, category: string, dimension: number, A: number[][], b: number[], x0: number[], description: string}>
 })
 
-// 调整矩阵大小
-const resizeMatrix = (newN: number) => {
-  const oldN = state.n
-  state.n = newN
-  
-  // 调整矩阵 A
-  if (newN > oldN) {
-    // 扩大矩阵 - 确保现有行存在
-    for (let i = 0; i < oldN; i++) {
-      if (!state.A[i]) {
-        state.A[i] = new Array(oldN).fill(0)
-      }
-      for (let j = oldN; j < newN; j++) {
-        state.A[i].push(0)
-      }
-    }
-    // 添加新行
-    for (let i = oldN; i < newN; i++) {
-      state.A.push(new Array(newN).fill(0))
-      state.A[i][i] = 1 // 对角线设为1
-    }
-  } else {
-    // 缩小矩阵 - 创建新的矩阵结构
-    const newA = []
-    for (let i = 0; i < newN; i++) {
-      newA[i] = []
-      for (let j = 0; j < newN; j++) {
-        newA[i][j] = (state.A[i] && state.A[i][j] !== undefined) ? state.A[i][j] : 0
-      }
-    }
-    state.A = newA
+// 维度筛选状态
+const selectedDimension = ref<number | null>(null)
+
+// 过滤预设矩阵
+const filteredPresets = (presets: typeof state.presetMatrices) => {
+  if (selectedDimension.value === null) {
+    return presets
   }
-  
-  // 调整向量 b 和 x0
-  if (newN > oldN) {
-    // 扩大向量
-    for (let i = oldN; i < newN; i++) {
-      state.b.push(0)
-      state.x0.push(0)
-    }
-  } else {
-    // 缩小向量
-    state.b = state.b.slice(0, newN)
-    state.x0 = state.x0.slice(0, newN)
-  }
+  return presets.filter(preset => preset.dimension === selectedDimension.value)
 }
+
+// 按类别分组的预设矩阵
+const groupedPresets = computed(() => {
+  const groups: Record<string, typeof state.presetMatrices> = {}
+  state.presetMatrices.forEach(preset => {
+    if (!groups[preset.category]) {
+      groups[preset.category] = []
+    }
+    groups[preset.category].push(preset)
+  })
+  return groups
+})
+
+// 按维度分组的预设矩阵
+const presetsByDimension = computed(() => {
+  const groups: Record<number, typeof state.presetMatrices> = {}
+  state.presetMatrices.forEach(preset => {
+    if (!groups[preset.dimension]) {
+      groups[preset.dimension] = []
+    }
+    groups[preset.dimension].push(preset)
+  })
+  return groups
+})
 
 // 计算向量的无穷范数
 const infinityNorm = (v1: number[], v2: number[]): number => {
@@ -309,56 +412,23 @@ const calculateGaussSeidel = () => {
 }
 
 // 应用预设矩阵
-const applyPreset = (preset: {name: string, A: number[][], b: number[], x0: number[]}) => {
+const applyPreset = (preset: {name: string, category: string, dimension: number, A: number[][], b: number[], x0: number[], description: string}) => {
+  // 更新矩阵维度
+  state.n = preset.dimension
+  
+  // 深拷贝矩阵和向量数据
   state.A = preset.A.map((row: number[]) => [...row])
   state.b = [...preset.b]
   state.x0 = [...preset.x0]
-}
-
-// 生成单位矩阵
-const generateIdentityMatrix = () => {
-  // 确保矩阵结构正确初始化
-  state.A = Array(state.n).fill(null).map(() => Array(state.n).fill(0))
   
-  for (let i = 0; i < state.n; i++) {
-    for (let j = 0; j < state.n; j++) {
-      state.A[i][j] = i === j ? 1 : 0
-    }
-  }
+  // 更新当前预设名称
+  state.currentPresetName = preset.name
   
-  // 确保向量b和x0的长度正确
-  state.b = Array(state.n).fill(0)
-  state.x0 = Array(state.n).fill(0)
-  
-  // 设置常数向量为单位向量
-  for (let i = 0; i < state.n; i++) {
-    state.b[i] = 1
-  }
-}
-
-// 生成对角占优矩阵
-const generateDiagonalDominantMatrix = () => {
-  // 确保矩阵结构正确初始化
-  state.A = Array(state.n).fill(null).map(() => Array(state.n).fill(0))
-  
-  for (let i = 0; i < state.n; i++) {
-    for (let j = 0; j < state.n; j++) {
-      if (i === j) {
-        state.A[i][j] = state.n + 1 // 对角线元素
-      } else {
-        state.A[i][j] = Math.random() - 0.5 // 随机非对角元素
-      }
-    }
-  }
-  
-  // 确保向量b和x0的长度正确
-  state.b = Array(state.n).fill(0)
-  state.x0 = Array(state.n).fill(0)
-  
-  // 设置常数向量
-  for (let i = 0; i < state.n; i++) {
-    state.b[i] = i + 1
-  }
+  // 清除之前的计算结果
+  state.jacobiResult = null
+  state.gaussSeidelResult = null
+  state.jacobiIterations = []
+  state.gaussSeidelIterations = []
 }
 
 // 检查对角占优性
@@ -412,21 +482,19 @@ const checkDiagonalDominance = computed(() => {
     <div class="content-layout">
       <!-- 左侧控制面板 -->
       <div class="control-panel">
-        <!-- 矩阵设置 -->
+        <!-- 当前矩阵信息 -->
         <div class="section">
-          <h3>矩阵设置</h3>
+          <h3>当前矩阵</h3>
           
-          <div class="form-group">
-            <label>矩阵维度 n:</label>
-            <select v-model.number="state.n" @change="resizeMatrix(state.n)">
-              <option value="2">2×2</option>
-              <option value="3">3×3</option>
-              <option value="4">4×4</option>
-              <option value="5">5×5</option>
-            </select>
-          </div>
-          
-          <div class="matrix-info">
+          <div class="current-matrix-info">
+            <div class="info-item">
+              <span>名称:</span>
+              <span class="matrix-name">{{ state.currentPresetName }}</span>
+            </div>
+            <div class="info-item">
+              <span>维度:</span>
+              <span class="matrix-dimension">{{ state.n }}×{{ state.n }}</span>
+            </div>
             <div class="info-item">
               <span>对角占优性:</span>
               <span :class="checkDiagonalDominance ? 'text-success' : 'text-warning'">
@@ -437,29 +505,55 @@ const checkDiagonalDominance = computed(() => {
               非对角占优矩阵可能不收敛
             </small>
           </div>
-          
-          <div class="matrix-buttons">
-            <button @click="generateIdentityMatrix()" class="matrix-btn">
-              单位矩阵
-            </button>
-            <button @click="generateDiagonalDominantMatrix()" class="matrix-btn">
-              对角占优
-            </button>
-          </div>
         </div>
         
         <!-- 预设矩阵 -->
         <div class="section">
-          <h3>预设矩阵</h3>
-          <div class="preset-buttons">
-            <button 
-              v-for="preset in state.presetMatrices[state.n] || []" 
-              :key="preset.name"
-              @click="applyPreset(preset)"
-              class="preset-btn"
-            >
-              {{ preset.name }}
-            </button>
+          <h3>选择预设矩阵</h3>
+          
+          <!-- 按维度筛选 -->
+          <div class="dimension-filter">
+            <label>按维度筛选:</label>
+            <div class="dimension-tabs">
+              <button 
+                v-for="dim in [2, 3, 4, 5, 6]" 
+                :key="dim"
+                @click="selectedDimension = dim"
+                :class="{ active: selectedDimension === dim }"
+                class="dimension-tab"
+              >
+                {{ dim }}×{{ dim }}
+              </button>
+              <button 
+                @click="selectedDimension = null"
+                :class="{ active: selectedDimension === null }"
+                class="dimension-tab"
+              >
+                全部
+              </button>
+            </div>
+          </div>
+          
+          <!-- 预设矩阵列表 -->
+          <div class="preset-list">
+            <template v-for="(presets, category) in groupedPresets" :key="category">
+              <div v-if="filteredPresets(presets).length > 0" class="preset-category">
+                <h4 class="category-title">{{ category }}</h4>
+                <div class="preset-buttons">
+                  <button 
+                    v-for="preset in filteredPresets(presets)" 
+                    :key="preset.name"
+                    @click="applyPreset(preset)"
+                    :class="{ active: preset.name === state.currentPresetName }"
+                    class="preset-btn"
+                    :title="preset.description"
+                  >
+                    <div class="preset-name">{{ preset.name }}</div>
+                    <div class="preset-description">{{ preset.description }}</div>
+                  </button>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
         
@@ -650,7 +744,7 @@ h1 {
 
 .content-layout {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 450px 1fr;
   gap: 2rem;
 }
 
@@ -707,14 +801,28 @@ select {
   font-size: 0.9rem;
 }
 
-.matrix-info {
+.current-matrix-info {
   margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.5rem;
+}
+
+.matrix-name {
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.matrix-dimension {
+  font-weight: bold;
+  color: #3498db;
 }
 
 .text-success {
@@ -732,24 +840,58 @@ select {
   font-size: 0.8rem;
 }
 
-.matrix-buttons {
-  display: flex;
-  gap: 0.5rem;
+.dimension-filter {
+  margin-bottom: 1.5rem;
 }
 
-.matrix-btn {
-  flex: 1;
-  padding: 0.5rem;
+.dimension-filter label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.dimension-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.dimension-tab {
+  padding: 0.4rem 0.8rem;
   background-color: #ecf0f1;
   border: 1px solid #bdc3c7;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s;
+  font-size: 0.8rem;
+  transition: all 0.2s;
 }
 
-.matrix-btn:hover {
+.dimension-tab:hover {
   background-color: #d5dbdb;
+}
+
+.dimension-tab.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.preset-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.preset-category {
+  margin-bottom: 1.5rem;
+}
+
+.category-title {
+  color: #2c3e50;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #ecf0f1;
 }
 
 .preset-buttons {
@@ -759,18 +901,40 @@ select {
 }
 
 .preset-btn {
-  padding: 0.5rem;
-  background-color: #ecf0f1;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
+  padding: 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   text-align: left;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .preset-btn:hover {
-  background-color: #d5dbdb;
+  background-color: #f8f9fa;
+  border-color: #3498db;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.preset-btn.active {
+  background-color: #e3f2fd;
+  border-color: #3498db;
+  border-width: 2px;
+}
+
+.preset-name {
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+}
+
+.preset-description {
+  font-size: 0.8rem;
+  color: #666;
+  line-height: 1.3;
 }
 
 .calculate-btn {

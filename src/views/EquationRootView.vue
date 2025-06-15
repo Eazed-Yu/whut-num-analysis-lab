@@ -1,6 +1,26 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { bisection, newtonMethod } from '../core/chapter5'
+import VChart from 'vue-echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart, ScatterChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components'
+
+use([
+  CanvasRenderer,
+  LineChart,
+  ScatterChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+])
 
 // 响应式状态
 const state = reactive({
@@ -68,7 +88,7 @@ const state = reactive({
       bisectionB: 4,
       newtonX0: 2
     }
-  ]
+  ] as PresetFunction[]
 })
 
 // 将字符串表达式转换为函数
@@ -193,75 +213,147 @@ const calculateNewton = () => {
   }
 }
 
+// 预设函数类型定义
+interface PresetFunction {
+  name: string
+  func: string
+  derivative: string
+  bisectionA: number
+  bisectionB: number
+  newtonX0: number
+}
+
 // 应用预设函数
-const applyPreset = (preset: any) => {
+const applyPreset = (preset: PresetFunction) => {
   state.bisectionFunction = preset.func
   state.newtonFunction = preset.func
   state.newtonDerivative = preset.derivative
   state.bisectionA = preset.bisectionA
   state.bisectionB = preset.bisectionB
   state.newtonX0 = preset.newtonX0
-}
-
-// 绘制函数图像
-const generateFunctionPath = (expression: string, xMin: number, xMax: number, width: number, height: number) => {
-  try {
-    const f = createFunction(expression)
-    const points = []
-    const steps = 200
-    
-    // 计算函数值范围
-    const values = []
-    for (let i = 0; i <= steps; i++) {
-      const x = xMin + (xMax - xMin) * i / steps
-      try {
-        const y = f(x)
-        if (isFinite(y)) {
-          values.push(y)
-        }
-      } catch (e) {
-        // 跳过无效点
-      }
-    }
-    
-    if (values.length === 0) return ''
-    
-    const yMin = Math.min(...values)
-    const yMax = Math.max(...values)
-    const yRange = yMax - yMin || 1
-    const yCenter = (yMin + yMax) / 2
-    const yDisplay = yRange * 1.2
-    
-    // 生成路径
-    for (let i = 0; i <= steps; i++) {
-      const x = xMin + (xMax - xMin) * i / steps
-      try {
-        const y = f(x)
-        if (isFinite(y)) {
-          const svgX = (i / steps) * width
-          const svgY = height / 2 - ((y - yCenter) / yDisplay) * height
-          
-          if (svgY >= 0 && svgY <= height) {
-            points.push({ x: svgX, y: svgY })
-          }
-        }
-      } catch (e) {
-        // 跳过无效点
-      }
-    }
-    
-    if (points.length === 0) return ''
-    
-    let path = `M ${points[0].x} ${points[0].y}`
-    for (let i = 1; i < points.length; i++) {
-      path += ` L ${points[i].x} ${points[i].y}`
-    }
-    
-    return path
-  } catch (error) {
-    return ''
+  
+  // 自动执行计算
+  if (state.activeMethod === 'bisection') {
+    calculateBisection()
+  } else {
+    calculateNewton()
   }
 }
+
+// ECharts图表配置
+const chartOption = computed(() => {
+  const currentFunction = state.activeMethod === 'bisection' ? state.bisectionFunction : state.newtonFunction
+  const currentResult = state.activeMethod === 'bisection' ? state.bisectionResult : state.newtonResult
+  
+  if (!currentFunction) {
+    return {}
+  }
+  
+  try {
+    const f = createFunction(currentFunction)
+    const xMin = state.activeMethod === 'bisection' 
+      ? state.bisectionA - 1 
+      : state.newtonX0 - 2
+    const xMax = state.activeMethod === 'bisection' 
+      ? state.bisectionB + 1 
+      : state.newtonX0 + 2
+    
+    // 生成函数曲线数据
+    const functionData = []
+    const steps = 200
+    for (let i = 0; i <= steps; i++) {
+      const x = xMin + (xMax - xMin) * i / steps
+      try {
+        const y = f(x)
+        if (isFinite(y) && Math.abs(y) < 1000) {
+          functionData.push([x, y])
+        }
+      } catch (e) {
+        // 跳过无效点
+      }
+    }
+    
+    const series: any[] = [{
+      name: 'f(x)',
+      type: 'line',
+      data: functionData,
+      lineStyle: { color: '#3498db', width: 2 },
+      symbol: 'none',
+      smooth: false
+    }]
+    
+    // 添加零线
+    const zeroLineData = [[xMin, 0], [xMax, 0]]
+    series.push({
+      name: 'y = 0',
+      type: 'line',
+      data: zeroLineData,
+      lineStyle: { color: '#333', width: 1, type: 'dashed' },
+      symbol: 'none'
+    })
+    
+    // 添加根的标记
+    if (currentResult !== null) {
+      series.push({
+        name: '根',
+        type: 'scatter',
+        data: [[currentResult, 0]],
+        itemStyle: { color: '#e74c3c' },
+        symbolSize: 10
+      })
+    }
+    
+    return {
+      title: {
+        text: `函数图像: f(x) = ${currentFunction}`,
+        left: 'center',
+        textStyle: { fontSize: 16, color: '#2c3e50' }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          let result = `x = ${params[0].data[0].toFixed(4)}<br/>`
+          params.forEach((param: any) => {
+            if (param.seriesName === 'f(x)') {
+              result += `f(x) = ${param.data[1].toFixed(6)}<br/>`
+            }
+          })
+          return result
+        }
+      },
+      legend: {
+        data: series.map(s => s.name),
+        bottom: 10
+      },
+      grid: {
+        left: '10%',
+        right: '10%',
+        bottom: '15%',
+        top: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'value',
+        name: 'x',
+        nameLocation: 'middle',
+        nameGap: 25,
+        axisLine: { lineStyle: { color: '#666' } },
+        splitLine: { lineStyle: { color: '#e0e0e0' } }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'f(x)',
+        nameLocation: 'middle',
+        nameGap: 35,
+        axisLine: { lineStyle: { color: '#666' } },
+        splitLine: { lineStyle: { color: '#e0e0e0' } }
+      },
+      series: series
+    }
+  } catch (error) {
+    return {}
+  }
+})
 </script>
 
 <template>
@@ -426,44 +518,14 @@ const generateFunctionPath = (expression: string, xMin: number, xMax: number, wi
       <div class="chart-panel">
         <!-- 函数图像 -->
         <div class="chart-container">
-          <h3>函数图像</h3>
-          <svg width="600" height="300" class="chart-svg">
-            <!-- 坐标轴 -->
-            <line x1="0" y1="150" x2="600" y2="150" stroke="#333" stroke-width="1" />
-            <line x1="300" y1="0" x2="300" y2="300" stroke="#333" stroke-width="1" />
-            
-            <!-- 函数曲线 -->
-            <path 
-              v-if="state.activeMethod === 'bisection' && state.bisectionFunction"
-              :d="generateFunctionPath(state.bisectionFunction, state.bisectionA - 1, state.bisectionB + 1, 600, 300)"
-              stroke="#3498db" 
-              stroke-width="2" 
-              fill="none"
-            />
-            <path 
-              v-if="state.activeMethod === 'newton' && state.newtonFunction"
-              :d="generateFunctionPath(state.newtonFunction, state.newtonX0 - 2, state.newtonX0 + 2, 600, 300)"
-              stroke="#3498db" 
-              stroke-width="2" 
-              fill="none"
-            />
-            
-            <!-- 根的标记 -->
-            <circle 
-              v-if="state.activeMethod === 'bisection' && state.bisectionResult !== null"
-              :cx="300 + (state.bisectionResult - (state.bisectionA + state.bisectionB) / 2) * 100"
-              cy="150"
-              r="5" 
-              fill="#e74c3c"
-            />
-            <circle 
-              v-if="state.activeMethod === 'newton' && state.newtonResult !== null"
-              :cx="300 + (state.newtonResult - state.newtonX0) * 100"
-              cy="150"
-              r="5" 
-              fill="#e74c3c"
-            />
-          </svg>
+          <VChart 
+            v-if="(state.activeMethod === 'bisection' && state.bisectionFunction) || (state.activeMethod === 'newton' && state.newtonFunction)"
+            :option="chartOption" 
+            style="width: 100%; height: 400px;"
+          />
+          <div v-else class="no-data">
+            <p>请输入函数表达式</p>
+          </div>
         </div>
         
         <!-- 迭代过程表格 -->
@@ -705,9 +767,16 @@ small {
   margin-bottom: 2rem;
 }
 
-.chart-svg {
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  background-color: #f8f9fa;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 1.1rem;
 }
 
 .iteration-table {
@@ -735,10 +804,7 @@ small {
   grid-template-columns: repeat(5, 1fr);
 }
 
-.table-body {
-  max-height: 300px;
-  overflow-y: auto;
-}
+
 
 .table-row {
   display: grid;

@@ -1,6 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { improvedEuler, rungeKutta4 } from '../core/chapter4'
+import VChart from 'vue-echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components'
+
+use([
+  CanvasRenderer,
+  LineChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+])
 
 // 响应式状态
 const state = reactive({
@@ -25,7 +44,6 @@ const state = reactive({
     { name: 'dy/dx = x + y', expression: 'x + y', x0: 0, y0: 1, h: 0.1, xn: 2 },
     { name: 'dy/dx = x - y', expression: 'x - y', x0: 0, y0: 1, h: 0.1, xn: 2 },
     { name: 'dy/dx = x * y', expression: 'x * y', x0: 0, y0: 1, h: 0.1, xn: 1 },
-    { name: 'dy/dx = x^2 + y^2', expression: 'x*x + y*y', x0: 0, y0: 1, h: 0.05, xn: 1 },
     { name: 'dy/dx = sin(x) + cos(y)', expression: 'Math.sin(x) + Math.cos(y)', x0: 0, y0: 0, h: 0.1, xn: 3.14 }
   ]
 })
@@ -82,95 +100,100 @@ const applyPreset = (preset: any) => {
   state.y0 = preset.y0
   state.h = preset.h
   state.xn = preset.xn
+  calculateSolution()
 }
 
-// 计算图表数据范围
-const dataRange = computed(() => {
-  const allPoints = [...state.eulerResult, ...state.rungeKuttaResult]
-  if (allPoints.length === 0) return { minX: 0, maxX: 1, minY: 0, maxY: 1 }
+// ECharts图表配置
+const chartOption = computed(() => {
+  const series = []
   
-  const xs = allPoints.map(p => p.x)
-  const ys = allPoints.map(p => p.y)
+  if (state.showEuler && state.eulerResult.length > 0) {
+    series.push({
+      name: '改进欧拉法',
+      type: 'line',
+      data: state.eulerResult.map(p => [p.x, p.y]),
+      lineStyle: { color: '#e74c3c', width: 2 },
+      symbol: 'none',
+      smooth: false
+    })
+  }
   
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys)
-  const maxY = Math.max(...ys)
+  if (state.showRungeKutta && state.rungeKuttaResult.length > 0) {
+    series.push({
+      name: '四阶龙格-库塔法',
+      type: 'line',
+      data: state.rungeKuttaResult.map(p => [p.x, p.y]),
+      lineStyle: { color: '#3498db', width: 2 },
+      symbol: 'none',
+      smooth: false
+    })
+  }
   
-  const rangeX = maxX - minX || 1
-  const rangeY = maxY - minY || 1
+  // 添加初始点
+  if (series.length > 0) {
+    series.push({
+      name: '初始点',
+      type: 'scatter',
+      data: [[state.x0, state.y0]],
+      itemStyle: { color: '#2c3e50' },
+      symbolSize: 8
+    })
+  }
   
   return {
-    minX: minX - rangeX * 0.1,
-    maxX: maxX + rangeX * 0.1,
-    minY: minY - rangeY * 0.1,
-    maxY: maxY + rangeY * 0.1
+    title: {
+      text: '微分方程解曲线',
+      left: 'center',
+      textStyle: { fontSize: 16, color: '#2c3e50' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      formatter: function(params: any) {
+        let result = `x = ${params[0].data[0].toFixed(4)}<br/>`
+        params.forEach((param: any) => {
+          if (param.seriesName !== '初始点') {
+            result += `${param.seriesName}: y = ${param.data[1].toFixed(6)}<br/>`
+          }
+        })
+        return result
+      }
+    },
+    legend: {
+      data: series.map(s => s.name),
+      bottom: 10
+    },
+    grid: {
+      left: '10%',
+      right: '10%',
+      bottom: '15%',
+      top: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'value',
+      name: 'x',
+      nameLocation: 'middle',
+      nameGap: 25,
+      axisLine: { lineStyle: { color: '#666' } },
+      splitLine: { lineStyle: { color: '#e0e0e0' } }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'y',
+      nameLocation: 'middle',
+      nameGap: 35,
+      axisLine: { lineStyle: { color: '#666' } },
+      splitLine: { lineStyle: { color: '#e0e0e0' } }
+    },
+    series: series
   }
 })
 
-// SVG 坐标转换
-const toSVG = (x: number, y: number, width: number, height: number) => {
-  const { minX, maxX, minY, maxY } = dataRange.value
-  const svgX = ((x - minX) / (maxX - minX)) * width
-  const svgY = height - ((y - minY) / (maxY - minY)) * height
-  return { x: svgX, y: svgY }
-}
+// 组件挂载时自动计算
+onMounted(() => {
+  calculateSolution()
+})
 
-// 生成路径字符串
-const generatePath = (points: { x: number; y: number }[], width: number, height: number) => {
-  if (points.length === 0) return ''
-  
-  const svgPoints = points.map(p => toSVG(p.x, p.y, width, height))
-  let path = `M ${svgPoints[0].x} ${svgPoints[0].y}`
-  
-  for (let i = 1; i < svgPoints.length; i++) {
-    path += ` L ${svgPoints[i].x} ${svgPoints[i].y}`
-  }
-  
-  return path
-}
-
-// 生成网格线
-const generateGridLines = (width: number, height: number) => {
-  const { minX, maxX, minY, maxY } = dataRange.value
-  const lines = []
-  
-  // 垂直网格线
-  const xStep = (maxX - minX) / 10
-  for (let i = 0; i <= 10; i++) {
-    const x = minX + i * xStep
-    const svgX = (i / 10) * width
-    lines.push({
-      type: 'vertical',
-      x1: svgX,
-      y1: 0,
-      x2: svgX,
-      y2: height,
-      label: x.toFixed(2),
-      labelX: svgX,
-      labelY: height + 15
-    })
-  }
-  
-  // 水平网格线
-  const yStep = (maxY - minY) / 10
-  for (let i = 0; i <= 10; i++) {
-    const y = minY + i * yStep
-    const svgY = height - (i / 10) * height
-    lines.push({
-      type: 'horizontal',
-      x1: 0,
-      y1: svgY,
-      x2: width,
-      y2: svgY,
-      label: y.toFixed(2),
-      labelX: -10,
-      labelY: svgY + 5
-    })
-  }
-  
-  return lines
-}
 </script>
 
 <template>
@@ -253,37 +276,33 @@ const generateGridLines = (width: number, height: number) => {
           </div>
         </div>
         
-        <!-- 数值结果 -->
-        <div class="section" v-if="state.eulerResult.length > 0 || state.rungeKuttaResult.length > 0">
-          <h3>数值结果</h3>
-          
-          <div v-if="state.showEuler && state.eulerResult.length > 0" class="result-section">
-            <h4>改进欧拉法 (前10个点)</h4>
-            <div class="result-table">
-              <div class="table-header">
-                <span>x</span>
-                <span>y</span>
-              </div>
-              <div 
-                v-for="(point, index) in state.eulerResult.slice(0, 10)" 
-                :key="index"
-                class="table-row"
-              >
-                <span>{{ point.x.toFixed(4) }}</span>
-                <span>{{ point.y.toFixed(6) }}</span>
-              </div>
-            </div>
+
+      </div>
+      
+      <!-- 右侧图表和数值结果 -->
+      <div class="chart-panel">
+        <div class="chart-container">
+          <VChart 
+            v-if="state.eulerResult.length > 0 || state.rungeKuttaResult.length > 0"
+            :option="chartOption" 
+            style="width: 100%; height: 400px;"
+          />
+          <div v-else class="no-data">
+            <p>请先计算微分方程解</p>
           </div>
-          
-          <div v-if="state.showRungeKutta && state.rungeKuttaResult.length > 0" class="result-section">
-            <h4>四阶龙格-库塔法 (前10个点)</h4>
-            <div class="result-table">
-              <div class="table-header">
-                <span>x</span>
-                <span>y</span>
-              </div>
+        </div>
+        
+        <!-- 改进欧拉法结果 -->
+        <div class="result-section" v-if="state.showEuler && state.eulerResult.length > 0">
+          <h3>改进欧拉法结果</h3>
+          <div class="result-table">
+            <div class="table-header">
+              <span>x</span>
+              <span>y</span>
+            </div>
+            <div class="table-body">
               <div 
-                v-for="(point, index) in state.rungeKuttaResult.slice(0, 10)" 
+                v-for="(point, index) in state.eulerResult" 
                 :key="index"
                 class="table-row"
               >
@@ -293,83 +312,24 @@ const generateGridLines = (width: number, height: number) => {
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- 右侧图表 -->
-      <div class="chart-panel">
-        <div class="chart-container">
-          <h3>解曲线图</h3>
-          <svg width="600" height="400" class="chart-svg">
-            <!-- 网格线 -->
-            <g class="grid">
-              <line 
-                v-for="(line, index) in generateGridLines(600, 400)" 
+        
+        <!-- 四阶龙格-库塔法结果 -->
+        <div class="result-section" v-if="state.showRungeKutta && state.rungeKuttaResult.length > 0">
+          <h3>四阶龙格-库塔法结果</h3>
+          <div class="result-table">
+            <div class="table-header">
+              <span>x</span>
+              <span>y</span>
+            </div>
+            <div class="table-body">
+              <div 
+                v-for="(point, index) in state.rungeKuttaResult" 
                 :key="index"
-                :x1="line.x1" 
-                :y1="line.y1" 
-                :x2="line.x2" 
-                :y2="line.y2"
-                stroke="#e0e0e0" 
-                stroke-width="1"
-              />
-            </g>
-            
-            <!-- 坐标轴标签 -->
-            <g class="labels">
-              <text 
-                v-for="(line, index) in generateGridLines(600, 400)" 
-                :key="index"
-                :x="line.labelX" 
-                :y="line.labelY"
-                font-size="10" 
-                fill="#666"
-                text-anchor="middle"
+                class="table-row"
               >
-                {{ line.label }}
-              </text>
-            </g>
-            
-            <!-- 改进欧拉法曲线 -->
-            <path 
-              v-if="state.showEuler && state.eulerResult.length > 0"
-              :d="generatePath(state.eulerResult, 600, 400)"
-              stroke="#e74c3c" 
-              stroke-width="2" 
-              fill="none"
-            />
-            
-            <!-- 四阶龙格-库塔法曲线 -->
-            <path 
-              v-if="state.showRungeKutta && state.rungeKuttaResult.length > 0"
-              :d="generatePath(state.rungeKuttaResult, 600, 400)"
-              stroke="#3498db" 
-              stroke-width="2" 
-              fill="none"
-            />
-            
-            <!-- 初始点 -->
-            <circle 
-              v-if="state.eulerResult.length > 0 || state.rungeKuttaResult.length > 0"
-              :cx="toSVG(state.x0, state.y0, 600, 400).x" 
-              :cy="toSVG(state.x0, state.y0, 600, 400).y"
-              r="4" 
-              fill="#2c3e50"
-            />
-          </svg>
-          
-          <!-- 图例 -->
-          <div class="legend">
-            <div v-if="state.showEuler" class="legend-item">
-              <div class="legend-color" style="background-color: #e74c3c;"></div>
-              <span>改进欧拉法</span>
-            </div>
-            <div v-if="state.showRungeKutta" class="legend-item">
-              <div class="legend-color" style="background-color: #3498db;"></div>
-              <span>四阶龙格-库塔法</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #2c3e50; border-radius: 50%;"></div>
-              <span>初始点 ({{ state.x0 }}, {{ state.y0 }})</span>
+                <span>{{ point.x.toFixed(4) }}</span>
+                <span>{{ point.y.toFixed(6) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -558,30 +518,42 @@ small {
 
 .chart-container {
   text-align: center;
+  margin-bottom: 2rem;
 }
 
-.chart-svg {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.legend {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  flex-wrap: wrap;
-}
-
-.legend-item {
+.no-data {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  height: 400px;
+  background-color: #f8f9fa;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  color: #666;
+  font-size: 1.1rem;
 }
 
-.legend-color {
-  width: 20px;
-  height: 3px;
+.result-section {
+  margin-bottom: 2rem;
+}
+
+.result-section:last-child {
+  margin-bottom: 0;
+}
+
+.result-table {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-body {
+  flex: 1;
+  overflow-y: auto;
+  background-color: white;
 }
 
 @media (max-width: 1200px) {
